@@ -19,8 +19,8 @@ LEARNING_RATE_GEN = 1e-4
 BATCH_SIZE = 64
 IMAGE_SIZE = 64
 CHANNELS_IMG = 1
-GEN_EMBEDDING = 100
-Z_DIM = 100
+GEN_EMBEDDING = 128
+Z_DIM = 128
 NUM_EPOCHS = 500
 FEATURES_CRITIC = 16
 FEATURES_GEN = 16
@@ -40,7 +40,7 @@ def main():
         ]
     )
 
-    dataset = datasets.ImageFolder(root="datasets/ck++", transform=trans)
+    dataset = datasets.ImageFolder(root="datasets/ck+", transform=trans)
 
     NUM_CLASSES = len(dataset.classes)
 
