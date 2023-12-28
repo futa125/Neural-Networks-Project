@@ -1,1 +1,1 @@
-# Project for University course "Neural Networks"
+# Project for University Course "Neural Networks"
