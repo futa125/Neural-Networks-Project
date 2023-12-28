@@ -1,128 +1,163 @@
+from typing import Optional, Tuple
+
 import numpy as np
 import torch
-import torch.nn as nn
 import torch.optim as optim
 import torchvision
-import torchvision.datasets as datasets
 import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
-from torch.utils.tensorboard import SummaryWriter
 from torchvision.utils import save_image
-from tqdm import tqdm
-from utils import gradient_penalty, save_checkpoint, load_checkpoint
-from model import Discriminator, Generator, initialize_weights
 
-# Hyperparameters etc.
-device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
-LEARNING_RATE_DISC = 1e-4
-LEARNING_RATE_GEN = 1e-4
-BATCH_SIZE = 64
-IMAGE_SIZE = 64
-CHANNELS_IMG = 1
-GEN_EMBEDDING = 128
-Z_DIM = 128
-NUM_EPOCHS = 500
-FEATURES_CRITIC = 16
-FEATURES_GEN = 16
-CRITIC_ITERATIONS = 5
-LAMBDA_GP = 10
+from dataset import Tufts
+from model import Discriminator, Generator
+from utils import gradient_penalty, initialize_weights
 
-def main():
-    trans = transforms.Compose(
-        [
-            transforms.Grayscale(),
-            transforms.Resize(IMAGE_SIZE),
-            transforms.CenterCrop(IMAGE_SIZE),
-            transforms.ToTensor(),
-            transforms.Normalize(
-                [0.5 for _ in range(CHANNELS_IMG)], [0.5 for _ in range(CHANNELS_IMG)]
-            ),
-        ]
-    )
+LEARNING_RATE_GENERATOR: float = 1e-4
+LEARNING_RATE_DISCRIMINATOR: float = 1e-4
+BETAS: Tuple[float, float] = (0.0, 0.9)
 
-    dataset = datasets.ImageFolder(root="datasets/ck+", transform=trans)
+BATCH_SIZE: int = 64
 
-    NUM_CLASSES = len(dataset.classes)
+# Editing image size requires changing the architecture of the network.
+IMAGE_SIZE: int = 64
 
-    # comment mnist above and uncomment below for training on CelebA
-    # dataset = datasets.ImageFolder(root="datasets/celeb", transform=transforms)
-    loader = DataLoader(
-        dataset,
-        batch_size=BATCH_SIZE,
-        shuffle=True,
-    )
+NUM_EPOCHS: int = 100
+NUM_CHANNELS_IMAGE: int = 1
+NUM_CHANNELS_NOISE: int = 100
+NUM_FEATURES_DISCRIMINATOR: int = 64
+NUM_FEATURES_GENERATOR: int = 64
+EMBEDDING_SIZE: int = 64
 
-    # initialize gen and disc, note: discriminator should be called critic,
-    # according to WGAN paper (since it no longer outputs between [0, 1])
-    gen = Generator(Z_DIM, CHANNELS_IMG, FEATURES_GEN, NUM_CLASSES, IMAGE_SIZE, GEN_EMBEDDING).to(device)
-    critic = Discriminator(CHANNELS_IMG, FEATURES_CRITIC, NUM_CLASSES, IMAGE_SIZE).to(device)
-    initialize_weights(gen)
-    initialize_weights(critic)
+CRITIC_ITERATIONS: int = 5
+LAMBDA: int = 10
 
-    # initializate optimizer
-    opt_gen = optim.Adam(gen.parameters(), lr=LEARNING_RATE_GEN, betas=(0.0, 0.9))
-    opt_critic = optim.Adam(critic.parameters(), lr=LEARNING_RATE_DISC, betas=(0.0, 0.9))
+GRID_ROWS = 10
 
-    # for tensorboard plotting
-    fixed_noise = torch.randn(NUM_CLASSES * 10, Z_DIM, 1, 1).to(device)
-    fixed_labels = torch.IntTensor(np.tile(np.array(range(NUM_CLASSES)), 10)).to(device)
 
-    writer_real = SummaryWriter(f"logs/GAN_MNIST/real")
-    writer_fake = SummaryWriter(f"logs/GAN_MNIST/fake")
-    step = 0
-
-    gen.train()
-    critic.train()
+def train(
+        generator: Generator,
+        discriminator: Discriminator,
+        optimizer_generator: optim.Optimizer,
+        optimizer_discriminator: optim.Optimizer,
+        loader: DataLoader,
+        device: str,
+        num_classes: int,
+):
+    generator.train()
+    discriminator.train()
 
     for epoch in range(NUM_EPOCHS):
-        for batch_idx, (real, labels) in enumerate(tqdm(loader)):
-            real = real.to(device)
-            labels = labels.to(device)
-            cur_batch_size = real.shape[0]
+        real_images: torch.Tensor
+        real_labels: torch.Tensor
 
-            # Train Critic: max E[critic(real)] - E[critic(fake)]
-            # equivalent to minimizing the negative of that
+        for batch, (real_images, real_labels) in enumerate(loader):
+            real_images = real_images.to(device)
+            real_labels = real_labels.to(device)
+
+            discriminator_loss: Optional[torch.Tensor] = None
             for _ in range(CRITIC_ITERATIONS):
-                noise = torch.randn(cur_batch_size, Z_DIM, 1, 1).to(device)
-                fake = gen(noise, labels)
-                critic_real = critic(real, labels).reshape(-1)
-                critic_fake = critic(fake, labels).reshape(-1)
-                gp = gradient_penalty(critic, labels, real, fake, device=device)
-                loss_critic = (
-                    -(torch.mean(critic_real) - torch.mean(critic_fake)) + LAMBDA_GP * gp
-                )
-                critic.zero_grad()
-                loss_critic.backward(retain_graph=True)
-                opt_critic.step()
+                noise: torch.Tensor = torch.randn(*real_labels.shape, NUM_CHANNELS_NOISE, 1, 1).to(device)
+                fake_images: torch.Tensor = generator(noise, real_labels)
 
-            # Train Generator: max E[critic(gen_fake)] <-> min -E[critic(gen_fake)]
-            gen_fake = critic(fake, labels).reshape(-1)
-            loss_gen = -torch.mean(gen_fake)
-            gen.zero_grad()
-            loss_gen.backward()
-            opt_gen.step()
+                discriminator_output_real: torch.Tensor = discriminator(real_images, real_labels)
+                discriminator_output_fake: torch.Tensor = discriminator(fake_images, real_labels)
 
-            # Print losses occasionally and print to tensorboard
-            if batch_idx % 1 == 0 and batch_idx > 0:
-                print(
-                    f"Epoch [{epoch}/{NUM_EPOCHS}] Batch {batch_idx}/{len(loader)} \
-                      Loss D: {loss_critic:.4f}, loss G: {loss_gen:.4f}"
+                gp: torch.Tensor = gradient_penalty(discriminator, real_labels, real_images, fake_images, device=device)
+                discriminator_loss: torch.Tensor = (
+                        -(torch.mean(discriminator_output_real) - torch.mean(discriminator_output_fake)) + LAMBDA * gp
                 )
 
-                with torch.no_grad():
-                    fake = gen(fixed_noise, fixed_labels)
+                discriminator.zero_grad()
+                discriminator_loss.backward(retain_graph=True)
+                optimizer_discriminator.step()
 
-                    # take out (up to) 32 examples
-                    # img_grid_real = torchvision.utils.make_grid(real[:50], normalize=True, nrow=10)
-                    img_grid_fake = torchvision.utils.make_grid(fake, normalize=True, nrow=NUM_CLASSES)
+            discriminator_output_fake: torch.Tensor = discriminator(fake_images, real_labels)
+            generator_loss: torch.Tensor = -torch.mean(discriminator_output_fake)
 
-                    # save_image(img_grid_real, f"./generated/real.png")
-                    save_image(img_grid_fake, f"./generated/fake.png")
+            generator.zero_grad()
+            generator_loss.backward()
+            optimizer_generator.step()
 
-                step += 1
+            print(f"Epoch [{epoch + 1}/{NUM_EPOCHS}] Batch {batch + 1}/{len(loader)} "
+                  f"Loss D: {discriminator_loss:.4f}, loss G: {generator_loss:.4f}")
+
+        with torch.no_grad():
+            noise: torch.Tensor = torch.randn(num_classes * GRID_ROWS, NUM_CHANNELS_NOISE, 1, 1).to(device)
+            labels: torch.Tensor = torch.LongTensor(np.tile(range(num_classes), GRID_ROWS)).to(device)
+
+            fake_images: torch.Tensor = generator(noise, labels)
+
+            grid: torch.Tensor = torchvision.utils.make_grid(tensor=fake_images, normalize=True, nrow=num_classes)
+            save_image(tensor=grid, fp=f"./generated/grid-epoch-{epoch + 1}.png")
 
 
-    torch.save(gen.state_dict(), "weights")
+def main() -> None:
+    device: str = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
+
+    transform: transforms.Compose = transforms.Compose([
+        transforms.Grayscale(),
+        transforms.Resize(IMAGE_SIZE),
+        transforms.CenterCrop(IMAGE_SIZE),
+        transforms.ToTensor(),
+        transforms.Normalize([0.5 for _ in range(NUM_CHANNELS_IMAGE)], [0.5 for _ in range(NUM_CHANNELS_IMAGE)])]
+    )
+
+    dataset: Tufts = Tufts(folder="./datasets/tufts", transform=transform)
+    loader: DataLoader = DataLoader(dataset=dataset, batch_size=BATCH_SIZE, shuffle=True)
+
+    num_classes = len(dataset.classes)
+
+    generator: Generator = Generator(
+        num_channels_noise=NUM_CHANNELS_NOISE,
+        num_channels_image=NUM_CHANNELS_IMAGE,
+        num_features=NUM_FEATURES_GENERATOR,
+        num_classes=num_classes,
+        embedding_size=EMBEDDING_SIZE,
+    ).to(device)
+
+    discriminator: Discriminator = Discriminator(
+        num_channels_image=NUM_CHANNELS_IMAGE,
+        img_size=IMAGE_SIZE,
+        num_features=NUM_FEATURES_DISCRIMINATOR,
+        num_classes=num_classes,
+    ).to(device)
+
+    try:
+        generator.load_state_dict(torch.load("./weights/generator.pth"))
+        discriminator.load_state_dict(torch.load("./weights/discriminator.pth"))
+
+        print("Weights loaded from previous run.")
+    except FileNotFoundError:
+        initialize_weights(generator)
+        initialize_weights(discriminator)
+
+        print("New weights initialized.")
+
+    optimizer_generator: optim.Adam = optim.Adam(
+        params=generator.parameters(),
+        lr=LEARNING_RATE_GENERATOR,
+        betas=BETAS,
+    )
+    optimizer_discriminator: optim.Adam = optim.Adam(
+        params=discriminator.parameters(),
+        lr=LEARNING_RATE_DISCRIMINATOR,
+        betas=BETAS,
+    )
+
+    try:
+        train(
+            generator=generator,
+            discriminator=discriminator,
+            optimizer_generator=optimizer_generator,
+            optimizer_discriminator=optimizer_discriminator,
+            loader=loader,
+            device=device,
+            num_classes=num_classes,
+        )
+    except KeyboardInterrupt:
+        torch.save(obj=generator.state_dict(), f="./weights/generator.pth")
+        torch.save(obj=discriminator.state_dict(), f="./weights/discriminator.pth")
+
 
 if __name__ == "__main__":
     main()
