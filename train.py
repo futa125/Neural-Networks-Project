@@ -105,7 +105,7 @@ def main() -> None:
         transforms.Normalize([0.5 for _ in range(NUM_CHANNELS_IMAGE)], [0.5 for _ in range(NUM_CHANNELS_IMAGE)])]
     )
 
-    dataset: Tufts = Tufts(folder=, transform=transform)
+    dataset: Tufts = Tufts(folder=DATASET_PATH, transform=transform)
     loader: DataLoader = DataLoader(dataset=dataset, batch_size=BATCH_SIZE, shuffle=True)
 
     num_classes = len(dataset.classes)
