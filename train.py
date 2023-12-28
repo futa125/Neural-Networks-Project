@@ -31,8 +31,11 @@ EMBEDDING_SIZE: int = 64
 CRITIC_ITERATIONS: int = 5
 LAMBDA: int = 10
 
-GRID_ROWS = 10
+GRID_ROWS: int = 10
 
+DATASET_PATH: str = "./datasets/tufts"
+GENERATOR_WEIGHTS_PATH: str = "./weights/generator.pth"
+DISCRIMINATOR_WEIGHTS_PATH: str = "./weights/generator.pth"
 
 def train(
         generator: Generator,
@@ -102,7 +105,7 @@ def main() -> None:
         transforms.Normalize([0.5 for _ in range(NUM_CHANNELS_IMAGE)], [0.5 for _ in range(NUM_CHANNELS_IMAGE)])]
     )
 
-    dataset: Tufts = Tufts(folder="./datasets/tufts", transform=transform)
+    dataset: Tufts = Tufts(folder=, transform=transform)
     loader: DataLoader = DataLoader(dataset=dataset, batch_size=BATCH_SIZE, shuffle=True)
 
     num_classes = len(dataset.classes)
@@ -123,13 +126,13 @@ def main() -> None:
     ).to(device)
 
     try:
-        generator.load_state_dict(torch.load("./weights/generator.pth"))
-        discriminator.load_state_dict(torch.load("./weights/discriminator.pth"))
+        generator.load_state_dict(state_dict=torch.load(f=GENERATOR_WEIGHTS_PATH))
+        discriminator.load_state_dict(state_dict=torch.load(f=DISCRIMINATOR_WEIGHTS_PATH))
 
         print("Weights loaded from previous run.")
     except FileNotFoundError:
-        initialize_weights(generator)
-        initialize_weights(discriminator)
+        initialize_weights(model=generator)
+        initialize_weights(model=discriminator)
 
         print("New weights initialized.")
 
@@ -155,8 +158,8 @@ def main() -> None:
             num_classes=num_classes,
         )
     except KeyboardInterrupt:
-        torch.save(obj=generator.state_dict(), f="./weights/generator.pth")
-        torch.save(obj=discriminator.state_dict(), f="./weights/discriminator.pth")
+        torch.save(obj=generator.state_dict(), f=GENERATOR_WEIGHTS_PATH)
+        torch.save(obj=discriminator.state_dict(), f=DISCRIMINATOR_WEIGHTS_PATH)
 
 
 if __name__ == "__main__":
