@@ -21,7 +21,7 @@ BATCH_SIZE: int = 64
 # Editing image size requires changing the architecture of the network.
 IMAGE_SIZE: int = 64
 
-NUM_EPOCHS: int = 100
+NUM_EPOCHS: int = 1000
 NUM_CHANNELS_IMAGE: int = 1
 NUM_CHANNELS_NOISE: int = 100
 NUM_FEATURES_DISCRIMINATOR: int = 64
