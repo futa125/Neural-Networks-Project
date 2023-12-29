@@ -19,18 +19,18 @@ class Tufts(dataset.Dataset):
             "4 - sunglasses",
         ]
 
-    def __getitem__(self, i: int):
+    def __getitem__(self, i: int) -> [Image, torch.Tensor]:
         file: Path = self.files[i]
         image: Image = Image.open(file)
 
         if self.transform is not None:
-            image = self.transform(image)
+            image: Image = self.transform(image)
 
         # Original is indexed 1-5, this makes it 0-4
         _, _, _, index = file.stem.split("_")
-        img_class = int(index) - 1
+        img_class: int = int(index) - 1
 
         return image, torch.tensor(img_class)
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.files)
