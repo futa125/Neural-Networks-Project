@@ -58,7 +58,7 @@ class Discriminator(nn.Module):
                 padding=padding,
                 bias=False,
             ),
-            nn.InstanceNorm2d(num_features=out_channels, affine=True),
+            nn.InstanceNorm2d(num_features=out_channels),
             nn.LeakyReLU(negative_slope=0.2),
         )
 

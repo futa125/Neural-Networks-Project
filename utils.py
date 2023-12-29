@@ -6,7 +6,7 @@ from model import Discriminator
 
 def initialize_weights(model: nn.Module) -> None:
     for module in model.modules():
-        if isinstance(module, (nn.Conv2d, nn.ConvTranspose2d, nn.BatchNorm2d, nn.InstanceNorm2d)):
+        if isinstance(module, (nn.Conv2d, nn.ConvTranspose2d, nn.BatchNorm2d)):
             nn.init.normal_(tensor=module.weight.data, mean=0.0, std=0.02)
 
 

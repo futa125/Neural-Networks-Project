@@ -7,6 +7,7 @@ import torchvision
 import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
 from torchvision.utils import save_image
+from tqdm.auto import tqdm
 
 from dataset import Tufts
 from model import Discriminator, Generator
@@ -21,7 +22,7 @@ BATCH_SIZE: int = 64
 # Editing image size requires changing the architecture of the network.
 IMAGE_SIZE: int = 64
 
-NUM_EPOCHS: int = 1000
+NUM_EPOCHS: int = 2000
 NUM_CHANNELS_IMAGE: int = 1
 NUM_CHANNELS_NOISE: int = 100
 NUM_FEATURES_DISCRIMINATOR: int = 64
@@ -35,7 +36,8 @@ GRID_ROWS: int = 10
 
 DATASET_PATH: str = "./datasets/tufts"
 GENERATOR_WEIGHTS_PATH: str = "./weights/generator.pth"
-DISCRIMINATOR_WEIGHTS_PATH: str = "./weights/generator.pth"
+DISCRIMINATOR_WEIGHTS_PATH: str = "./weights/discriminator.pth"
+
 
 def train(
         generator: Generator,
@@ -49,7 +51,8 @@ def train(
     generator.train()
     discriminator.train()
 
-    for epoch in range(NUM_EPOCHS):
+    epochs: tqdm = tqdm(iterable=range(NUM_EPOCHS))
+    for epoch in epochs:
         real_images: torch.Tensor
         real_labels: torch.Tensor
 
@@ -81,8 +84,8 @@ def train(
             generator_loss.backward()
             optimizer_generator.step()
 
-            print(f"Epoch [{epoch + 1}/{NUM_EPOCHS}] Batch {batch + 1}/{len(loader)} "
-                  f"Loss D: {discriminator_loss:.4f}, loss G: {generator_loss:.4f}")
+            epochs.desc = f"Loss G: {generator_loss:.4f}, Loss D: {discriminator_loss:.4f}"
+            epochs.update(n=0)
 
         with torch.no_grad():
             noise: torch.Tensor = torch.randn(num_classes * GRID_ROWS, NUM_CHANNELS_NOISE, 1, 1).to(device)
