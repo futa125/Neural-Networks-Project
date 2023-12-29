@@ -20,9 +20,9 @@ BETAS: Tuple[float, float] = (0.0, 0.9)
 BATCH_SIZE: int = 64
 
 # Editing image size requires changing the architecture of the network.
-IMAGE_SIZE: int = 64
+IMAGE_SIZE: int = 128
 
-NUM_EPOCHS: int = 2000
+NUM_EPOCHS: int = 100
 NUM_CHANNELS_IMAGE: int = 1
 NUM_CHANNELS_NOISE: int = 100
 NUM_FEATURES_DISCRIMINATOR: int = 64
@@ -163,6 +163,9 @@ def main() -> None:
     except KeyboardInterrupt:
         torch.save(obj=generator.state_dict(), f=GENERATOR_WEIGHTS_PATH)
         torch.save(obj=discriminator.state_dict(), f=DISCRIMINATOR_WEIGHTS_PATH)
+
+    torch.save(obj=generator.state_dict(), f=GENERATOR_WEIGHTS_PATH)
+    torch.save(obj=discriminator.state_dict(), f=DISCRIMINATOR_WEIGHTS_PATH)
 
 
 if __name__ == "__main__":

@@ -38,8 +38,15 @@ class Discriminator(nn.Module):
                 stride=2,
                 padding=1,
             ),
-            nn.Conv2d(
+            self._block(
                 in_channels=num_features * 8,
+                out_channels=num_features * 16,
+                kernel_size=4,
+                stride=2,
+                padding=1,
+            ),
+            nn.Conv2d(
+                in_channels=num_features * 16,
                 out_channels=1,
                 kernel_size=4,
                 stride=2,
@@ -84,10 +91,17 @@ class Generator(nn.Module):
         self.gen: nn.Sequential = nn.Sequential(
             self._block(
                 in_channels=num_channels_noise + embedding_size,
-                out_channels=num_features * 16,
+                out_channels=num_features * 32,
                 kernel_size=4,
                 stride=1,
                 padding=0,
+            ),
+            self._block(
+                in_channels=num_features * 32,
+                out_channels=num_features * 16,
+                kernel_size=4,
+                stride=2,
+                padding=1,
             ),
             self._block(
                 in_channels=num_features * 16,
