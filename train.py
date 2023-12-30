@@ -9,7 +9,7 @@ from torch.utils.data import DataLoader
 from torchvision.utils import save_image
 from tqdm.auto import tqdm
 
-from dataset import Tufts
+from dataset import TFEIDCombined
 from model import Discriminator, Generator
 from utils import gradient_penalty, initialize_weights
 
@@ -20,9 +20,9 @@ BETAS: Tuple[float, float] = (0.0, 0.9)
 BATCH_SIZE: int = 64
 
 # Editing image size requires changing the architecture of the network.
-IMAGE_SIZE: int = 128
+IMAGE_SIZE: int = 64
 
-NUM_EPOCHS: int = 100
+NUM_EPOCHS: int = 2000
 NUM_CHANNELS_IMAGE: int = 1
 NUM_CHANNELS_NOISE: int = 100
 NUM_FEATURES_DISCRIMINATOR: int = 64
@@ -34,7 +34,8 @@ LAMBDA: int = 10
 
 GRID_ROWS: int = 10
 
-DATASET_PATH: str = "./datasets/tufts"
+DATASET_PATH_1: str = "./datasets/tfeid-high"
+DATASET_PATH_2: str = "./datasets/tfeid-slight"
 GENERATOR_WEIGHTS_PATH: str = "./weights/generator.pth"
 DISCRIMINATOR_WEIGHTS_PATH: str = "./weights/discriminator.pth"
 
@@ -108,9 +109,13 @@ def main() -> None:
         transforms.Normalize([0.5 for _ in range(NUM_CHANNELS_IMAGE)], [0.5 for _ in range(NUM_CHANNELS_IMAGE)])]
     )
 
-    dataset: Tufts = Tufts(folder=DATASET_PATH, transform=transform)
+    # dataset: Tufts = Tufts(folder=DATASET_PATH, transform=transform)
+    dataset: TFEIDCombined = TFEIDCombined(
+        folder_high=DATASET_PATH_1,
+        folder_slight=DATASET_PATH_2,
+        transform=transform,
+    )
     loader: DataLoader = DataLoader(dataset=dataset, batch_size=BATCH_SIZE, shuffle=True)
-
     num_classes = len(dataset.classes)
 
     generator: Generator = Generator(
