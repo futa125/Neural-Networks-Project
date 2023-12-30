@@ -53,7 +53,22 @@ class TFEIDCombined(dataset.Dataset):
             "6 - sadness",
             "7 - surprise",
         ]
-        self.class_name_to_index: Dict[str, int] = {
+
+    def __getitem__(self, i: int) -> [Image, torch.Tensor]:
+        file: Path = self.files[i]
+        image: Image = self.transform(Image.open(file))
+
+        emotion_name: str
+        _, emotion_name, _ = file.parent.name.split("_")
+
+        return image, torch.tensor(self.class_name_to_index(emotion_name))
+
+    def __len__(self) -> int:
+        return len(self.files)
+
+    @staticmethod
+    def class_name_to_index(name: str) -> int:
+        class_name_to_index: Dict[str, int] = {
             "anger":     0,
             "contempt":  1,
             "disgust":   2,
@@ -64,14 +79,19 @@ class TFEIDCombined(dataset.Dataset):
             "surprise":  7,
         }
 
-    def __getitem__(self, i: int) -> [Image, torch.Tensor]:
-        file: Path = self.files[i]
-        image: Image = self.transform(Image.open(file))
+        return class_name_to_index[name.lower()]
 
-        emotion_name: str
-        _, emotion_name, _ = file.parent.name.split("_")
+    @staticmethod
+    def class_index_to_name(index: int) -> str:
+        class_index_to_name: Dict[int, str] = {
+            0: "anger",
+            1: "contempt",
+            2: "disgust",
+            3: "fear",
+            4: "happiness",
+            5: "neutral",
+            6: "sadness",
+            7: "surprise",
+        }
 
-        return image, torch.tensor(self.class_name_to_index[emotion_name])
-
-    def __len__(self) -> int:
-        return len(self.files)
+        return class_index_to_name[index]
