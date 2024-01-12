@@ -1,10 +1,13 @@
+from typing import List
+
 import torch
 import torchvision
 from matplotlib import pyplot as plt
 
 from dataset import TFEIDCombined
 from model import Generator
-from train import EMBEDDING_SIZE, NUM_CHANNELS_IMAGE, NUM_CHANNELS_NOISE, NUM_FEATURES_GENERATOR
+from train import DATASET_PATH_1, DATASET_PATH_2, EMBEDDING_SIZE, NUM_CHANNELS_IMAGE, NUM_CHANNELS_NOISE, \
+    NUM_FEATURES_GENERATOR, TRANSFORM
 
 
 def main() -> None:
@@ -46,6 +49,7 @@ def main() -> None:
     ).to(device)
     generator.load_state_dict(state_dict=torch.load(
         f="./weights/2023-30-12-tfeid-combined-64x64-1-channel-1k-epoch-affine-true/generator.pth",
+        map_location=device,
     ))
     generator.eval()
 
@@ -54,10 +58,26 @@ def main() -> None:
     noise: torch.Tensor = torch.randn(batch_size, NUM_CHANNELS_NOISE, 1, 1).to(device)
     labels: torch.Tensor = torch.LongTensor([label] * batch_size).to(device)
 
-    images: torch.Tensor = generator(noise, labels)
+    dataset: TFEIDCombined = TFEIDCombined(
+        folder_high=DATASET_PATH_1,
+        folder_slight=DATASET_PATH_2,
+        transform=TRANSFORM,
+    )
+
+    real_images_list: List[torch.Tensor] = []
+    real_image: torch.Tensor
+    for real_image, real_label in dataset:
+        if real_label == label:
+            real_images_list.append(real_image.unsqueeze(0))
+        if len(real_images_list) == batch_size:
+            break
+
+    fake_images: torch.Tensor = generator(noise, labels)
+    real_images: torch.Tensor = torch.cat(real_images_list, dim=0).to(device)
+    images: List[torch.Tensor] = [fake_images, real_images]
 
     # Grid needs to be on CPU for plotting to work
-    grid: torch.Tensor = torchvision.utils.make_grid(tensor=images, normalize=True, nrow=batch_size).to("cpu")
+    grid: torch.Tensor = torchvision.utils.make_grid(tensor=torch.cat(images, dim=0), normalize=True, nrow=batch_size).to("cpu")
 
     # Permute so that the channels are last
     plt.imshow(grid.permute(1, 2, 0))

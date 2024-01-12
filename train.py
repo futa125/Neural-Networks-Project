@@ -39,6 +39,14 @@ DATASET_PATH_2: str = "./datasets/tfeid-slight"
 GENERATOR_WEIGHTS_PATH: str = "./weights/generator.pth"
 DISCRIMINATOR_WEIGHTS_PATH: str = "./weights/discriminator.pth"
 
+TRANSFORM: transforms.Compose = transforms.Compose([
+    transforms.Grayscale(),
+    transforms.Resize(IMAGE_SIZE),
+    transforms.CenterCrop(IMAGE_SIZE),
+    transforms.ToTensor(),
+    transforms.Normalize([0.5 for _ in range(NUM_CHANNELS_IMAGE)], [0.5 for _ in range(NUM_CHANNELS_IMAGE)])]
+)
+
 
 def train(
         generator: Generator,
@@ -101,19 +109,11 @@ def train(
 def main() -> None:
     device: str = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
 
-    transform: transforms.Compose = transforms.Compose([
-        transforms.Grayscale(),
-        transforms.Resize(IMAGE_SIZE),
-        transforms.CenterCrop(IMAGE_SIZE),
-        transforms.ToTensor(),
-        transforms.Normalize([0.5 for _ in range(NUM_CHANNELS_IMAGE)], [0.5 for _ in range(NUM_CHANNELS_IMAGE)])]
-    )
-
     # dataset: Tufts = Tufts(folder=DATASET_PATH, transform=transform)
     dataset: TFEIDCombined = TFEIDCombined(
         folder_high=DATASET_PATH_1,
         folder_slight=DATASET_PATH_2,
-        transform=transform,
+        transform=TRANSFORM,
     )
     loader: DataLoader = DataLoader(dataset=dataset, batch_size=BATCH_SIZE, shuffle=True)
     num_classes = len(dataset.classes)
